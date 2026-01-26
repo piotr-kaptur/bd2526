@@ -1,0 +1,19 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "giniewicz.it",
+            "port": 3306,
+            "driver": "MariaDB",
+            "name": "team14",
+            "database": "team13",
+            "username": "team13",
+            "password": "te@mzie"
+        }
+    ]
+}
