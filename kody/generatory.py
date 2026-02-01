@@ -4,6 +4,7 @@ import datetime as dt
 import pandas as pd
 import csv
 from pathlib import Path
+import mysql.connector #pip install mysql-connector-python
 
 # ======================= SEED =======================
 seed = 10
@@ -77,4 +78,43 @@ def check_if_positive(chance): # chance should be a value between 0-1 and repres
     else:
         return False
     
-        
+# ======================= SQL CONNECTION =======================        
+conn = mysql.connector.connect(
+    host="giniewicz.it",
+    user="team13",
+    password="te@mzie",
+    database="team13"
+)
+
+cursor = conn.cursor()
+
+
+# tutaj jest przykladowa funkcja ktora wypelnia tabele n rekordami. Musimy zrobic taka funkcje dla kazdej tabeli 
+def fillPracownicy(n):
+    for i in range(n):
+        rImie = random.choice(first_names)
+        rNazwisko = random.choice(last_names)
+        rNumer = generate_phone_number()
+        rPostal = generate_postal_code()
+        #... 
+        rWynagrodzenie = minimal_wage
+        cursor.execute(
+            "INSERT INTO Pracownicy (imie, nazwisko, numer_telefonu, kod_pocztowy, miasto, ulica, wynagrodzenie)" \
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (rImie, rNazwisko,rNumer,rPostal,...,rWynagrodzenie)
+            
+        )
+
+# def fillSponsorzy...
+# ...
+
+
+# i pozniej tylko
+# fillPracownicy(20)
+# ...
+
+
+conn.commit()
+
+cursor.close()
+conn.close()       
