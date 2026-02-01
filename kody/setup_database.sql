@@ -24,7 +24,7 @@ CREATE TABLE  sponsorzy_umowy (
     id_chomika INT, 
     rozpoczecie_umowy DATE,
     koniec_umowy DATE,
-    kwota DECIMAL(10,2),
+    kwota DECIMAL(10,2)
 );
 
 CREATE TABLE finansowanie (
@@ -50,14 +50,14 @@ CREATE TABLE konkurencje (
 
 CREATE TABLE chomiki (
     id_chomika INT AUTO_INCREMENT PRIMARY KEY,
-    data_urodzenia DATE,
-    data_smierci DATE,
     imie VARCHAR(50),
     rasa VARCHAR(50),
     kolor VARCHAR(50),
     waga DECIMAL(5,2),
     wzrost DECIMAL(5,2),
-    plec CHAR(1)
+    plec CHAR(1),
+    data_urodzenia DATE,
+    data_smierci DATE
 );
 
 CREATE TABLE wyniki_zawodow (
