@@ -8,7 +8,6 @@ CREATE TABLE pracownicy (
     numer_telefonu VARCHAR(12),
     kod_pocztowy VARCHAR(10),
     miasto VARCHAR(50),
-    ulica  VARCHAR(100),
     wynagrodzenie DECIMAL(10,2)
 );
 
@@ -36,8 +35,9 @@ CREATE TABLE finansowanie (
 
 CREATE TABLE zawody (
     id_zawodow INT AUTO_INCREMENT PRIMARY KEY,
-    data_zawodow DATE,
+    id_konkurencji INT,
     nazwa VARCHAR(200),
+    data_zawodow DATE,
     lokalizacja VARCHAR(200),
     pula_nagrod DECIMAL(10,2)
 );
@@ -63,11 +63,8 @@ CREATE TABLE chomiki (
 CREATE TABLE wyniki_zawodow (
     id_startu INT AUTO_INCREMENT PRIMARY KEY,
     id_zawodow INT,
-    id_konkurencji INT,
     id_chomika INT,
-    zajete_miejsce INT,
-    czas DECIMAL(6,2),
-    punkty INT
+    czas DECIMAL(6,2)
 );
 
 CREATE TABLE substancje_zakazane (

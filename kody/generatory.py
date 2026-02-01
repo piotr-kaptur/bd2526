@@ -29,6 +29,7 @@ hamster_colours = ["perlowy","karmelowy","grafitowy","piaskowy","popielaty",
                    "czekoladowy","miodowy","srebrzysty","waniliowy","szampanski"]
 hamster_runner_percentage = 0.8
 
+
 # FINANCES
 min_finance_money = 100000  #100,000
 max_finance_money = 1000000 #1,000,000
@@ -43,17 +44,21 @@ racing_formulas = [
 ]
 
 # COMPETTION
+competition_types_ids =[]
 competition_ammount = 100
 tests_per_competition_ammount = hamster_ammount/100
+min_prize_pool = 10000
+max_prize_pool = 500000
+
+# RACES
+min_race_time = 15
+max_race_time = 30
 
 # WORKERS
 minimal_wage = 4666
 maximum_wage = 15462
 
-
-
-
-
+# ILLEGAL SUBSTANCES
 doping_chance = 0.03
 
 # ======================= LOAD_IN_DATA =======================
@@ -66,28 +71,38 @@ def load_names(filename):
         reader = csv.DictReader(f)
         return [row["name"] for row in reader] # if you add in data make sure that the headliner of name is called name otherwise this function won't read it
 
+def load_cities(filename):
+    path = DATA_DIR / filename
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return [row["City"] for row in reader]
+    
 first_names = load_names("first_names.csv")
 last_names = load_names("last_names.csv")
 companies = load_names("company_names.csv")
 illegal_substances = load_names("illegal_substances.csv")
+competiton_names = load_names("competiton_names.csv")
+city_names = load_cities("cities.csv")
 
 
 # ======================= GENERATE_DATA =======================
+def normal_distribution(min_val, max_val):
+    if max_val <=min_val:
+        raise ValueError("min_val has to be smaller than max_val")
+    mean = (min_val + max_val) / 2
+    std = (max_val - min_val) / 6
+    
+    # preserving normal distribution
+    while True:
+        value = np.random.normal(loc=mean, scale=std) # most values between (mean - 3*std, mean + 3*std)
+        if (min_val <= value  <= max_val): 
+            return value
+
 def generate_phone_number():
     return f"{random.randint(1, 999999999):09d}"
 
 def generate_postal_code():
     return f"{random.randint(1,99):02d}-{random.randint(1,999):03d}"    
-    
-def generate_money_ammount(min_amm, max_amm):
-    mean = (min_amm + max_amm) / 2
-    std = (max_amm - min_amm) / 6
-    
-    # preserving normal distribution
-    while True:
-        value = np.random.normal(loc=mean, scale=std) # most values between (mean - 3*std, mean + 3*std)
-        if (min_amm <= value  <= max_amm): 
-            return round(value)
 
 def generate_random_date(min_date, max_date):
     if (max_date <= min_date):
@@ -95,6 +110,7 @@ def generate_random_date(min_date, max_date):
     delta_days = (max_date - min_date).days
     date = min_date + dt.timedelta(days=random.randrange(delta_days))
     return date
+    
 
 def generate_hamster_death_date(birth_date):
     two_years = dt.timedelta(days = 2*365)
@@ -106,31 +122,6 @@ def generate_hamster_death_date(birth_date):
             return  generate_random_date(birth_date + two_years,min(
                                         birth_date + three_years, current_date))
     return None
-    
-
-def generate_weight(min_weight, max_weight):
-    if (max_weight <= min_weight):
-        raise ValueError("min_weight has to be smaller than max_weight")
-    mean = (min_weight + max_weight) / 2
-    std = (max_weight -  min_weight) / 6
-    
-    # preserving normal distribution
-    while True:
-        weight = np.random.normal(loc=mean, scale=std) # most of values between (mean - 3*std, mean + 3*std)
-        if (min_weight <= weight <= max_weight):
-            return round(weight)
-        
-def generate_height(min_height, max_height):
-    if (max_height <= min_height):
-        raise ValueError("min_height has to be smaller than max_height")
-    mean = (min_height + max_height) / 2
-    std = (max_height - min_height) / 6
-    
-    # preserving normal distribution
-    while True:
-        weight = np.random.normal(loc=mean, scale=std) # most of values between (mean - 3*std, mean + 3*std)
-        if (min_height <= weight <= max_height):
-            return round(weight)
 
 def check_if_positive(chance): # chance should be a value between 0-1 and represents how likely sth is to happend
     if (chance>1 or chance<0):
@@ -160,8 +151,8 @@ def fill_chomiki(n):
         imie = random.choice(first_names)
         rasa = random.choice(hamster_races)
         kolor = random.choice(hamster_colours)
-        waga = generate_weight(min_hamster_weight, max_hamster_weight)
-        wzrost = generate_height(min_hamster_height, max_hamster_height)
+        waga = normal_distribution(min_hamster_weight, max_hamster_weight)
+        wzrost = normal_distribution(min_hamster_height, max_hamster_height)
         plec = random.choice(['M','F'])
         data_urodzenia = generate_random_date(creation_date, current_date)
         data_smierci = generate_hamster_death_date(data_urodzenia)          
@@ -171,11 +162,12 @@ def fill_chomiki(n):
             data_urodzenia,data_smierci)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             (imie, rasa, kolor, waga, wzrost, plec, data_urodzenia, data_smierci))
+        
 
 def fill_finansowanie(n):
     for _ in range(n):
         zrodlo = None # ktoś musi csv zrobic z tym
-        kwota = generate_money_ammount(min_finance_money, max_finance_money)
+        kwota = normal_distribution(min_finance_money, max_finance_money)
         data_finansowania = generate_random_date(creation_date, current_date)
         
         cursor.execute(
@@ -189,15 +181,17 @@ def fill_konkurencje():
         formula = formula
         
         cursor.execute(
-            """INSERT INTO finansowanie (nazwa_konkurencji, formula)
+            """INSERT INTO konkurencje (nazwa_konkurencji, formula)
             VALUES (%s, %s)""",
             (nazwa_konkurencji, formula))
+        competition_types_ids.append(cursor.lastrowid)
 
 def fill_kontrole(n):
     #probelmatyczne (duzo relacji)
-    for i in range (1, competition_ammount*tests_per_competition_ammount):
-        id_zawodow = math.ceil(i/tests_per_competition_ammount)
-        pass
+    sql ="""
+    
+    """
+    cursor.execute(sql)
     
 def fill_pracownicy(n):
     #problematyczne (relacja miasto->ulica->kod_pocztowy)
@@ -205,19 +199,15 @@ def fill_pracownicy(n):
         imie = random.choice(first_names)
         nazwisko = random.choice(last_names)
         numer_telefonu = generate_phone_number()
-        #to trzeba wyjac z bazydanych cities1500 upewnic sie ze ulica jest w miescie
-        # kod pocztowy zwiazany z miastem pozdro kaptur
-        miasto = None
-        ulica = None
-        kod_pocztowy = None 
-        wynagrodzenie = generate_money_ammount(minimal_wage, maximum_wage)
+        miasto = random.choice(city_names)
+        kod_pocztowy = None # ja bym to wyjebal
+        wynagrodzenie = normal_distribution(minimal_wage, maximum_wage)
         
         cursor.execute(
             """INSERT INTO pracownicy (imie, nazwisko, numer_telefonu, kod_pocztowy, 
             miasto, ulica, wynagrodzenie)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-            (imie, nazwisko, numer_telefonu, kod_pocztowy, miasto, ulica, 
-             wynagrodzenie))
+            VALUES (%s, %s, %s, %s, %s, %s)""",
+            (imie, nazwisko, numer_telefonu, kod_pocztowy, miasto, wynagrodzenie))
 
 def fill_sponsorzy():
     for company in companies:
@@ -225,7 +215,7 @@ def fill_sponsorzy():
         numer_telefonu = generate_phone_number()
         
         cursor.execute(
-            """INSERT INTO pracownicy (nazwa_firmy, numer_telefonu)
+            """INSERT INTO sponsorzy (nazwa_firmy, numer_telefonu)
             VALUES (%s, %s)""",
             (nazwa_firmy, numer_telefonu))
 
@@ -238,21 +228,63 @@ def fill_substancje_zakazane():
         nazwa = substance
         
         cursor.execute(
-            """INSERT INTO pracownicy (nazwa)
+            """INSERT INTO substancje_zakazane (nazwa)
             VALUES (%s)""",
             (nazwa))
 
 def fill_wyniki_kontroli():
-    # trudne ale nie tak bardzo jak inne
-    pass
+    sql = """
+    SELECT id_kontroli
+    FROM kontrole
+    WHERE wynik_kontroli IS TRUE
+    """
+    cursor.execute(sql)
+    for control_id in cursor:
+        id_kontroli = control_id
+        id_substancji = random.choice(illegal_substances)
+        cursor.execute(
+            """INSERT INTO wyniki_kontroli (id_kontroli, id_substancji)
+            VALUES (%s, %s)""",
+            (id_kontroli, id_substancji))
+        
+    
 
-def fill_wyniki_zawodow()
-    #to po zawodach
-    pass
+def fill_wyniki_zawodow():
+    sql = """
+    SELECT z.id_chomika AS competition_id, c.id_zawodow AS hamster_id
+    FROM zawody z 
+    JOIN chomik c
+    ON c.data_urodzenia <= z.data_zawodow
+    AND (c.data_smierci IS NULL OR c.data_smierci < z.data.zawodow)
+    ORDER BY z.id
+    """
+    cursor.execute(sql)
+    #tutaj sortujemy tylko chomiki które zyją
+    
+    for competition_id, hamster_id in cursor:
+        id_zawodow = competition_id
+        id_chomika = hamster_id
+        czas = normal_distribution(min_race_time, max_race_time)
+        
+        cursor.execute(
+            """INSERT INTO wyniki_zawodow (id_zawodow, id_chomika, czas)
+            VALUES (%s, %s, %s)""",
+            (id_zawodow, id_chomika, czas))
+            
 
-def fill_zawody():
-    #next
-    pass
+def fill_zawody(n):
+    for _ in range(n):
+        id_konkurencji = random.choice(competition_types_ids)
+        nazwa = random.choice(competiton_names)
+        data_zawodow = generate_random_date(creation_date, current_date)
+        lokalizacja = random.choice(city_names)
+        pula_nagrod = normal_distribution(min_prize_pool, max_prize_pool)
+        
+        cursor.execute(
+            """INSERT INTO zawody (id_konkurencji, nazwa, data_zawodow, lokalizacja, 
+            pula_nagrod)
+            VALUES (%s, %s ,%s, %s, %s)""",
+            (id_konkurencji, data_zawodow, nazwa, lokalizacja, pula_nagrod))
 
         
 
