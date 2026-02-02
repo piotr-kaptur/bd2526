@@ -260,7 +260,7 @@ def fill_sponsorzy():
 def fill_sponsorzy_umowy(n):
     sql1 = """
     SELECT id_sponsora
-    FROM SPONSORZY"""
+    FROM sponsorzy"""
     cursor1.execute(sql1)
     
     sql2 ="""
@@ -310,11 +310,11 @@ def fill_wyniki_kontroli():
     
     for control_id in ids:
         id_kontroli = control_id
-        zakazane_substancje = random.choice(illegal_substances)
+        substancje_zakazane = random.choice(illegal_substances)
         cursor.execute(
-            """INSERT INTO wyniki_kontroli (id_kontroli, zakazane_substancje)
+            """INSERT INTO wyniki_kontroli (id_kontroli, substancje_zakazane)
             VALUES (%s, %s)""",
-            (id_kontroli, zakazane_substancje))
+            (id_kontroli, substancje_zakazane))
         
     
 
@@ -362,12 +362,13 @@ fill_finansowanie(10)
 fill_konkurencje()
 fill_pracownicy(10)
 fill_sponsorzy()
-#fill_sponsorzy_umowy(30)
+fill_sponsorzy_umowy(30)
 fill_substancje_zakazane()
 fill_zawody(100)
+fill_wyniki_zawodow()
 fill_kontrole()
 fill_wyniki_kontroli()
-fill_wyniki_zawodow()        
+      
 
 
 conn.commit()
