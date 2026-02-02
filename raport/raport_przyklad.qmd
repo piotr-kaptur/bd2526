@@ -141,14 +141,11 @@ Sprawdzamy, czy chomiki posiadające wyższe kontrakty sponsorskie osiągają le
 #| label: money_vs_performance_advanced
 #| include: false
 
-# suma sponsoringu dla chomika
 query_sponsors = session.query(
     SponsorzyUmowy.id_chomika,
     sa.func.sum(SponsorzyUmowy.kwota).label('suma_sponsoringu')
 ).group_by(SponsorzyUmowy.id_chomika).subquery()
 
-# 2. Pobieramy wyniki z podziałem na KONKURENCJE
-# Łączymy: Wyniki -> Zawody -> Konkurencje -> Chomiki
 query_perf = session.query(
     Chomiki.imie,
     Chomiki.id_chomika,
@@ -161,10 +158,8 @@ query_perf = session.query(
 
 df_perf = pd.read_sql_query(query_perf.statement, engine)
 
-# 3. Pobieramy dane o pieniądzach
 df_money = pd.read_sql_query(session.query(query_sponsors).statement, engine)
 
-# 4. Łączymy w jeden DataFrame
 df_final = pd.merge(df_perf, df_money, on='id_chomika', how='left').fillna(0)
 ```
 
