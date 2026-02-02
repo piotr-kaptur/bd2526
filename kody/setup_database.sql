@@ -6,7 +6,6 @@ CREATE TABLE pracownicy (
     imie VARCHAR(50),
     nazwisko VARCHAR(50),
     numer_telefonu VARCHAR(12),
-    kod_pocztowy VARCHAR(10),
     miasto VARCHAR(50),
     wynagrodzenie DECIMAL(10,2)
 );
@@ -83,7 +82,7 @@ CREATE TABLE kontrole (
 CREATE TABLE wyniki_kontroli (
     id INT AUTO_INCREMENT PRIMARY KEY,
     id_kontroli INT,
-    id_substancji INT
+    substancje_zakazane VARCHAR(100)
 );
 
 

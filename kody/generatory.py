@@ -17,7 +17,7 @@ creation_date = dt.date(1990, 12, 2)
 current_date = dt.date.today()
 
 # HAMSTERS
-hamster_ammount = 1000
+hamster_ammount = 10000 # 10,000
 min_hamster_weight = 20
 max_hamster_weight = 80
 min_hamster_height = 4
@@ -31,8 +31,10 @@ hamster_runner_percentage = 0.8
 
 
 # FINANCES
-min_finance_money = 100000  #100,000
-max_finance_money = 1000000 #1,000,000
+min_finance_money = 1e5  #100,000
+max_finance_money = 1e6 #1,000,000
+min_sponsor_deal_cash_amm = 1e4 # 10,000
+max_sponsor_deal_cash_amm = 5*1e5 # 500,000
 
 # FORMULAS
 racing_formulas = [
@@ -46,9 +48,9 @@ racing_formulas = [
 # COMPETTION
 competition_types_ids =[]
 competition_ammount = 100
-tests_per_competition_ammount = hamster_ammount/100
-min_prize_pool = 10000
-max_prize_pool = 500000
+tests_per_competition_ammount = int(hamster_ammount/1000)
+min_prize_pool = 1e5 # 100,000
+max_prize_pool = 1e6 #1,000,000
 
 # RACES
 min_race_time = 15
@@ -145,6 +147,8 @@ conn = mysql.connector.connect(
 )
 
 cursor = conn.cursor()
+cursor1 = conn.cursor()
+cursor2 = conn.cursor()
 
 def fill_chomiki(n):
     for _ in range(n):
@@ -166,7 +170,7 @@ def fill_chomiki(n):
 
 def fill_finansowanie(n):
     for _ in range(n):
-        zrodlo = None # ktoś musi csv zrobic z tym
+        zrodlo = None # ktoś musi csv zrobic z tym, mi juz wystarczy
         kwota = normal_distribution(min_finance_money, max_finance_money)
         data_finansowania = generate_random_date(creation_date, current_date)
         
@@ -186,12 +190,36 @@ def fill_konkurencje():
             (nazwa_konkurencji, formula))
         competition_types_ids.append(cursor.lastrowid)
 
-def fill_kontrole(n):
-    #probelmatyczne (duzo relacji)
-    sql ="""
-    
+def fill_kontrole():
+    sql1 ="""
+    SELECT id_zawodow, data_zawodow 
+    FROM zawody
+    ORDER BY id_zawodow
     """
-    cursor.execute(sql)
+    cursor1.execute(sql1)
+    for id_zawodow, data_zawodow in cursor1:
+        
+        cursor2.execute("""SELECT id_chomika
+        FROM wyniki_zawodow
+        WHERE id_zawodow = %s
+        """, (id_zawodow,))
+        chomiki = [row[0] for row in cursor2.fetchall()]
+        k = min(tests_per_competition_ammount, len(chomiki))
+        chosen_hamsters = random.sample(chomiki, k)
+        for hamster in chosen_hamsters:
+            id_zawodow = id_zawodow
+            id_chomika = hamster
+            data_kontroli = data_zawodow
+            wynik_kontroli = check_if_positive(doping_chance)
+            
+            cursor.execute(
+            """INSERT INTO kontrole (id_zawodow, id_chomika, data_kontroli, 
+            wynik_kontroli)
+            VALUES (%s, %s, %s, %s)""",
+            (id_zawodow, id_chomika, data_kontroli, wynik_kontroli))
+            
+            
+            
     
 def fill_pracownicy(n):
     #problematyczne (relacja miasto->ulica->kod_pocztowy)
@@ -200,14 +228,14 @@ def fill_pracownicy(n):
         nazwisko = random.choice(last_names)
         numer_telefonu = generate_phone_number()
         miasto = random.choice(city_names)
-        kod_pocztowy = None # ja bym to wyjebal
+        kod_pocztowy = None # usunalem to, jezeli nie chcecie tego usuwac czytaj: to sobie to robcie moj pomysl byl taki ze generuje za kazdym razem csv ktore kazdemu miastu przypisuje unikalny randomowo wygenerowany kod-pocztowy po czym przy tworzeniu po prostu odczytujemy z krotki/csv
         wynagrodzenie = normal_distribution(minimal_wage, maximum_wage)
         
         cursor.execute(
-            """INSERT INTO pracownicy (imie, nazwisko, numer_telefonu, kod_pocztowy, 
-            miasto, ulica, wynagrodzenie)
+            """INSERT INTO pracownicy (imie, nazwisko, numer_telefonu, miasto, 
+            ulica, wynagrodzenie)
             VALUES (%s, %s, %s, %s, %s, %s)""",
-            (imie, nazwisko, numer_telefonu, kod_pocztowy, miasto, wynagrodzenie))
+            (imie, nazwisko, numer_telefonu, miasto, wynagrodzenie))
 
 def fill_sponsorzy():
     for company in companies:
@@ -219,9 +247,37 @@ def fill_sponsorzy():
             VALUES (%s, %s)""",
             (nazwa_firmy, numer_telefonu))
 
-def fill_sponsorzy_umowy():
-    # w chuj roboty
-    pass
+def fill_sponsorzy_umowy(n):
+    sql1 = """
+    SELECT id_sponsora
+    FROM SPONSORZY"""
+    cursor1.execute(sql1)
+    
+    sql2 ="""
+    SELECT id_chomika, data_urodzenia, data_smierci
+    FROM chomiki"""
+    cursor2.execute(sql2)
+    
+    sponsors_id = [row[0] for row in cursor1.fetchall()]
+    chomiki_info = cursor2.fetchall() # to bedzie w chuj wolne ale nw jak inaczej to zrobic
+    
+    for _ in range(n):
+        id_sponsora = random.choice(sponsors_id)
+        id_chomika, data_urodzenia, data_smierci = random.choice(chomiki_info)
+        if data_smierci is None:
+            data_smierci = current_date
+        rozpoczecie_umowy = generate_random_date(data_urodzenia, data_smierci)
+        koniec_umowy =  generate_random_date(rozpoczecie_umowy, data_smierci)
+        kwota = normal_distribution(min_sponsor_deal_cash_amm, 
+                                    max_sponsor_deal_cash_amm)
+        cursor.execute(
+            """INSERT INTO sponsorzy_umowy (id_sponsora, id_chomika, rozpoczecie_umowy, 
+            koniec_umowy, kwota)
+            VALUES (%s, %s, %s, %s, %s)""",
+            (id_sponsora, id_chomika, rozpoczecie_umowy, koniec_umowy, kwota))
+        
+        
+    
 
 def fill_substancje_zakazane():
     for substance in illegal_substances:
@@ -230,7 +286,7 @@ def fill_substancje_zakazane():
         cursor.execute(
             """INSERT INTO substancje_zakazane (nazwa)
             VALUES (%s)""",
-            (nazwa))
+            (nazwa,))
 
 def fill_wyniki_kontroli():
     sql = """
@@ -239,24 +295,27 @@ def fill_wyniki_kontroli():
     WHERE wynik_kontroli IS TRUE
     """
     cursor.execute(sql)
-    for control_id in cursor:
+    #tutaj sortujemy tylko kontrole w których wykryto substancje
+    ids = [row[0] for row in cursor.fetchall()]
+    
+    for control_id in ids:
         id_kontroli = control_id
-        id_substancji = random.choice(illegal_substances)
+        zakazane_substancje = random.choice(illegal_substances)
         cursor.execute(
-            """INSERT INTO wyniki_kontroli (id_kontroli, id_substancji)
+            """INSERT INTO wyniki_kontroli (id_kontroli, zakazane_substancje)
             VALUES (%s, %s)""",
-            (id_kontroli, id_substancji))
+            (id_kontroli, zakazane_substancje))
         
     
 
 def fill_wyniki_zawodow():
     sql = """
-    SELECT z.id_chomika AS competition_id, c.id_zawodow AS hamster_id
+    SELECT z.id_zawodow AS competition_id, c.id_chomika AS hamster_id
     FROM zawody z 
-    JOIN chomik c
+    JOIN chomiki c
     ON c.data_urodzenia <= z.data_zawodow
-    AND (c.data_smierci IS NULL OR c.data_smierci < z.data.zawodow)
-    ORDER BY z.id
+    AND (c.data_smierci IS NULL OR c.data_smierci >= z.data_zawodow)
+    ORDER BY z.id_zawodow
     """
     cursor.execute(sql)
     #tutaj sortujemy tylko chomiki które zyją
@@ -284,7 +343,7 @@ def fill_zawody(n):
             """INSERT INTO zawody (id_konkurencji, nazwa, data_zawodow, lokalizacja, 
             pula_nagrod)
             VALUES (%s, %s ,%s, %s, %s)""",
-            (id_konkurencji, data_zawodow, nazwa, lokalizacja, pula_nagrod))
+            (id_konkurencji, nazwa, data_zawodow, lokalizacja, pula_nagrod))
 
         
 
