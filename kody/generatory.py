@@ -83,7 +83,7 @@ first_names = load_names("first_names.csv")
 last_names = load_names("last_names.csv")
 companies = load_names("company_names.csv")
 illegal_substances = load_names("illegal_substances.csv")
-competiton_names = load_names("competiton_names.csv")
+competiton_names = load_names("competition_names.csv")
 city_names = load_cities("cities.csv")
 
 
