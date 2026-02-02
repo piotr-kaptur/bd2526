@@ -1,0 +1,390 @@
+---
+title: "Raport: Analiza Chomików Sportowych"
+subtitle: "Analiza danych z bazy Team13"
+lang: pl
+author: "Piotr Kaptur"
+date: 2026-02-02
+date-format: short
+title-block-style: plain
+title-block-banner: "#33ffa3"
+title-block-banner-color: "#0b4600"
+toc-location: right
+format: 
+  html:
+    code-fold: true
+    self-contained: true
+    theme: cosmo
+jupyter: python3
+execute:
+  daemon: false
+  warning: false
+---
+
+```{python}
+#| label: load_packages
+#| include: false
+import sqlalchemy as sa
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.automap import automap_base
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import date
+from IPython.display import Markdown
+import urllib.parse
+```
+
+## Konfiguracja połączenia
+
+```{python}
+#| label: connection_data
+#| include: true
+# DANE LOGOWANIA
+host = 'giniewicz.it'
+user = 'team13'
+password = 'te@mzie'
+database = 'team13'
+port = 3306
+```
+
+```{python}
+#| label: connection_engine
+#| include: false
+
+# --- NAPRAWA HASŁA ---
+safe_password = urllib.parse.quote_plus(password)
+safe_user = urllib.parse.quote_plus(user)
+
+connection_string = f"mariadb+pymysql://{safe_user}:{safe_password}@{host}:{port}/{database}?charset=utf8mb4"
+engine = sa.create_engine(connection_string)
+
+Base = automap_base()
+Base.prepare(autoload_with=engine)
+SessionLocal = sessionmaker(bind=engine)
+session = SessionLocal()
+
+Chomiki = Base.classes.chomiki
+Zawody = Base.classes.zawody
+Wyniki = Base.classes.wyniki_zawodow
+Konkurencje = Base.classes.konkurencje
+SponsorzyUmowy = Base.classes.sponsorzy_umowy
+Finansowanie = Base.classes.finansowanie
+Kontrole = Base.classes.kontrole
+```
+
+---
+
+### 1. Najlepsi sportowcy w każdej kategorii
+
+Poniższa tabela przedstawia chomiki, które osiągnęły najlepszy (najkrótszy) czas w poszczególnych konkurencjach.
+
+```{python}
+#| label: best_athletes
+#| include: false
+
+query_best = session.query(
+    Konkurencje.nazwa_konkurencji,
+    Chomiki.imie,
+    Chomiki.rasa,
+    sa.func.min(Wyniki.czas).label('najlepszy_czas')
+).join(Zawody, Wyniki.id_zawodow == Zawody.id_zawodow)\
+ .join(Konkurencje, Zawody.id_konkurencji == Konkurencje.id_konkurencji)\
+ .join(Chomiki, Wyniki.id_chomika == Chomiki.id_chomika)\
+ .group_by(Konkurencje.nazwa_konkurencji)
+
+df_best = pd.read_sql_query(query_best.statement, engine)
+```
+
+```{python}
+#| label: fig-best-table
+#| echo: false
+Markdown(df_best.to_markdown(index=False))
+```
+
+### 2. Szczyt kariery chomików
+
+Analiza zależności między wiekiem chomika (w dniach) a osiąganym czasem. Pozwala określić, w jakim wieku zawodnicy są najszybsi.
+
+```{python}
+#| label: career_peak
+#| include: false
+
+query_age = session.query(
+    Wyniki.czas,
+    Chomiki.data_urodzenia,
+    Zawody.data_zawodow
+).join(Chomiki, Wyniki.id_chomika == Chomiki.id_chomika)\
+ .join(Zawody, Wyniki.id_zawodow == Zawody.id_zawodow)
+
+df_age = pd.read_sql_query(query_age.statement, engine)
+df_age['wiek_dni'] = (pd.to_datetime(df_age['data_zawodow']) - pd.to_datetime(df_age['data_urodzenia'])).dt.days
+```
+
+```{python}
+#| label: fig-career-peak
+#| fig-cap: "Zależność wyniku od wieku chomika"
+#| echo: false
+
+fig = px.scatter(df_age, x='wiek_dni', y='czas', title="Wyniki chomików w zależności od wieku (dni)", opacity=0.6)
+fig.update_layout(xaxis_title="Wiek (dni)", yaxis_title="Czas (s)")
+fig.show()
+```
+
+Wiek chomika nie ma wpływu na jego wyniki czasowe zarówno bardzo młode chomiki (0 dni) jak i stare (ponad 100 dni) osiągają zarówno dobre jak i słabe wyniki, mozemy jednak zobaczyć, że dużo chomików osiąga średnie czasy.
+
+### 3. Czy pieniądze dają przewagę?
+
+Sprawdzamy, czy chomiki posiadające wyższe kontrakty sponsorskie osiągają lepsze czasy. Analiza została rozdzielona na oszczególne dyscypliny.
+
+```{python}
+#| label: money_vs_performance_advanced
+#| include: false
+
+# suma sponsoringu dla chomika
+query_sponsors = session.query(
+    SponsorzyUmowy.id_chomika,
+    sa.func.sum(SponsorzyUmowy.kwota).label('suma_sponsoringu')
+).group_by(SponsorzyUmowy.id_chomika).subquery()
+
+# 2. Pobieramy wyniki z podziałem na KONKURENCJE
+# Łączymy: Wyniki -> Zawody -> Konkurencje -> Chomiki
+query_perf = session.query(
+    Chomiki.imie,
+    Chomiki.id_chomika,
+    Konkurencje.nazwa_konkurencji,
+    sa.func.avg(Wyniki.czas).label('sredni_czas')
+).join(Zawody, Wyniki.id_zawodow == Zawody.id_zawodow)\
+ .join(Konkurencje, Zawody.id_konkurencji == Konkurencje.id_konkurencji)\
+ .join(Chomiki, Wyniki.id_chomika == Chomiki.id_chomika)\
+ .group_by(Chomiki.id_chomika, Konkurencje.nazwa_konkurencji)
+
+df_perf = pd.read_sql_query(query_perf.statement, engine)
+
+# 3. Pobieramy dane o pieniądzach
+df_money = pd.read_sql_query(session.query(query_sponsors).statement, engine)
+
+# 4. Łączymy w jeden DataFrame
+df_final = pd.merge(df_perf, df_money, on='id_chomika', how='left').fillna(0)
+```
+
+```{python}
+#| label: fig-money-dropdown
+#| fig-cap: "Zależność sponsoringu od wyników"
+#| echo: false
+
+fig = go.Figure()
+
+dyscypliny = df_final['nazwa_konkurencji'].unique()
+
+for dyscyplina in dyscypliny:
+    df_temp = df_final[df_final['nazwa_konkurencji'] == dyscyplina]
+    
+    fig.add_trace(
+        go.Scatter(
+            x=df_temp['suma_sponsoringu'],
+            y=df_temp['sredni_czas'],
+            mode='markers',
+            name=dyscyplina,
+            text=df_temp['imie'],
+            visible=False,
+            marker=dict(size=8, opacity=0.6, line=dict(width=1, color='DarkSlateGrey'))
+        )
+    )
+
+if len(fig.data) > 0:
+    fig.data[0].visible = True
+
+buttons = []
+for i, dyscyplina in enumerate(dyscypliny):
+    visibility = [False] * len(dyscypliny)
+    visibility[i] = True
+    button = dict(
+        label=dyscyplina,
+        method="update",
+        args=[{"visible": visibility},
+              {"title": f"Sponsoring vs Czas: {dyscyplina}"}]
+    )
+    buttons.append(button)
+fig.update_layout(
+    updatemenus=[
+        dict(
+            active=0,
+            buttons=buttons,
+            x=1.0,
+            y=1.15
+        )
+    ],
+    title=f"Sponsoring vs Czas: {dyscypliny[0] if len(dyscypliny)>0 else ''}",
+    xaxis_title="Suma kontraktów sponsorskich (PLN)",
+    yaxis_title="Średni czas (s)",
+    margin=dict(t=50, l=25, r=25, b=25)
+)
+
+fig.show()
+```
+
+Okazuje się że pieniądze nie mają wpływu na wyniki zawodników niezależnie od dyscypliny, zaówno dobrze jak i słabo finansowane chomiki osiągają dobre wyniki.
+
+### 4. Popularność sportu i finanse
+
+Analiza liczby uczestników zawodów w czasie oraz bilans finansowy federacji.
+
+```{python}
+#| label: popularity_finance
+#| include: false
+
+query_pop = session.query(
+    Zawody.data_zawodow,
+    sa.func.count(Wyniki.id_chomika).label('liczba_uczestnikow')
+).join(Wyniki, Zawody.id_zawodow == Wyniki.id_zawodow)\
+ .group_by(Zawody.data_zawodow)\
+ .order_by(Zawody.data_zawodow)
+
+df_pop = pd.read_sql_query(query_pop.statement, engine)
+
+pula = session.query(sa.func.sum(Zawody.pula_nagrod)).scalar() or 0
+finans = session.query(sa.func.sum(Finansowanie.kwota)).scalar() or 0
+spons = session.query(sa.func.sum(SponsorzyUmowy.kwota)).scalar() or 0
+
+df_fin = pd.DataFrame({
+    'Kategoria': ['Wydatki (Nagrody)', 'Przychody (Całkowite)'],
+    'Kwota': [pula, finans + spons]
+})
+```
+
+```{python}
+#| label: fig-pop-fin
+#| layout-ncol: 2
+#| echo: false
+
+fig1 = px.line(df_pop, x='data_zawodow', y='liczba_uczestnikow', title="Uczestnicy w czasie")
+fig1.show()
+
+fig2 = px.bar(df_fin, x='Kategoria', y='Kwota', color='Kategoria', title="Bilans finansowy")
+fig2.show()
+```
+
+Popularność ulega Ilość uczesniów w zawodach notuje sporą zmienność. W ostatnich latach (po 2020 r. jak i po 2016r.) widoczny jest wyraźny dołek i spadek liczby zawodników poniżej 60 na zawody.
+
+Wykres słupkowy pokazuje, że federacja jest w doskonałej kondycji finansowej. Przychody całkowite (sponsoring i dotacje wynoszące ponad 150 mln) niemal trzykrotnie przewyższają główne koszty operacyjne, jakimi są pule nagród (nieco ponad 50 mln). Oznacza to, że sport chomiczy jest wysoce skomercjalizowany i generuje potężne zyski dla organizatorów.
+
+### 5. Gdzie leżą największe pieniądze?
+
+Poniższa wykres rzedstawia, które miasta inwestują najwięcej w organizację awodów oraz jakie dyscypliny generują największe pule nagród. 
+
+```{python}
+#| label: fig-prize-treemap
+#| echo: false
+
+query_prize = session.query(
+    Zawody.lokalizacja,
+    Konkurencje.nazwa_konkurencji,
+    sa.func.sum(Zawody.pula_nagrod).label('suma_nagrod')
+).join(Konkurencje, Zawody.id_konkurencji == Konkurencje.id_konkurencji)\
+ .group_by(Zawody.lokalizacja, Konkurencje.nazwa_konkurencji)
+
+df_prize = pd.read_sql_query(query_prize.statement, engine)
+
+fig = px.treemap(df_prize, 
+                 path=['lokalizacja', 'nazwa_konkurencji'], 
+                 values='suma_nagrod',
+                 color='suma_nagrod',
+                 color_continuous_scale='Greens',
+                 title="Mapa Finansowa: Pula nagród wg Miast i yscyplin")
+
+fig.update_traces(textinfo="label+value+percent parent")
+fig.show()
+```
+
+### 6. Skuteczność kontroli antydopingowych
+Procentowy udział wyników kontroli.
+
+```{python}
+#| label: fig-control
+#| echo: false
+query_control = session.query(
+    Kontrole.wynik_kontroli,
+    sa.func.count(Kontrole.id_kontroli).label('liczba')
+).group_by(Kontrole.wynik_kontroli)
+
+df_control = pd.read_sql_query(query_control.statement, engine)
+fig = px.pie(df_control, values='liczba', names='wynik_kontroli', title="Wyniki kontroli")
+fig.show()
+```
+
+### 7. Analiza Fizjonomii
+Czy budowa ciała (waga i wzrost) ma kluczowy wpływ na osiągany czas? Wykres 3D pozwala nam zaobserwować najlepszych zawodników w przestrzeni cech fizycznych.
+
+```{python}
+#| label: fig-3d-analysis
+#| echo: false
+
+query_3d = session.query(
+    Chomiki.waga,
+    Chomiki.wzrost,
+    Wyniki.czas,
+    Chomiki.rasa
+).join(Wyniki, Chomiki.id_chomika == Wyniki.id_chomika)
+
+df_3d = pd.read_sql_query(query_3d.statement, engine)
+
+fig = px.scatter_3d(df_3d, x='waga', y='wzrost', z='czas', color='rasa',
+                    opacity=0.7, 
+                    title="Zależność: Waga vs Wzrost vs Czas",
+                    labels={'waga': 'Waga (g)', 'wzrost': 'Wzrost (cm)', 'czas': 'Czas (s)'})
+
+fig.update_layout(margin=dict(l=0, r=0, b=0, t=30))
+fig.show()
+```
+
+Wykred powyżej pokazuje , że waga oraz wzrost chomików nie mają żadnego wpływu na osiągany przez nie czas. Żadna z ras, niezależnie od swoich gabarytów (czy to malutki chomik Roborowskiego, czy duży chomik europejski), nie zyskuje naturalnej przewagi fizycznej w tych konkretnych zawodach. Sukces zależy zatem od innych czynników (np. ukrytego talentu, wytrenowania lub, jak wykazano wcześniej, poziomu finansowania).
+
+### 8. Co decyduje o sukcesie? Jak parametry, finansowanie i wiek wpływają na siebie nawzajem?
+- Wartość bliska **1** lub **-1** oznacza silną zależność.
+- Wartość bliska **0** oznacza brak związku.
+
+```{python}
+#| label: correlation-matrix
+#| echo: false
+
+query_phys = session.query(
+    Chomiki.id_chomika,
+    Chomiki.data_urodzenia,
+    Chomiki.waga,
+    Chomiki.wzrost,
+    Wyniki.czas,
+    Zawody.data_zawodow
+).join(Wyniki, Chomiki.id_chomika == Wyniki.id_chomika)\
+ .join(Zawody, Wyniki.id_zawodow == Zawody.id_zawodow)
+
+df_main = pd.read_sql_query(query_phys.statement, engine)
+
+df_main['wiek_dni'] = (pd.to_datetime(df_main['data_zawodow']) - pd.to_datetime(df_main['data_urodzenia'])).dt.days
+
+query_money = session.query(
+    SponsorzyUmowy.id_chomika,
+    sa.func.sum(SponsorzyUmowy.kwota).label('finansowanie')
+).group_by(SponsorzyUmowy.id_chomika)
+df_money = pd.read_sql_query(query_money.statement, engine)
+
+df_full = pd.merge(df_main, df_money, on='id_chomika', how='left').fillna(0)
+
+cols_to_corr = ['czas', 'waga', 'wzrost', 'wiek_dni', 'finansowanie']
+corr_matrix = df_full[cols_to_corr].corr()
+
+fig = px.imshow(corr_matrix, 
+                text_auto=True, 
+                aspect="auto", 
+                color_continuous_scale='RdBu_r',
+                title="Macierz Korelacji: Co wpływa na czas?")
+fig.show()
+```
+
+Macierz powyżej pokazuje, że żadna z badanych zmiennych nie jest ze sobą powiązana. Wszystkie współczynniki w macierzy (poza przekątną) oscylują bardzo blisko zera (w przedziale od -0.04 do +0.02). Skoro żaden z mierzonych, parametrów nie wpływa na czas, oznacza to, że o sukcesie w federacji decydują czynniki niemierzalne – wrodzony talent, łut szczęścia lub chwilowa dyspozycja lub niedyspozycja danego dnia.
+
+```{python}
+#| label: session_close
+#| include: false
+session.close()
+```
