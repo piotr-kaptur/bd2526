@@ -150,6 +150,10 @@ cursor = conn.cursor()
 cursor1 = conn.cursor()
 cursor2 = conn.cursor()
 
+def generate_tables():
+    cursor.execute(
+    "CALL generate_tables()")
+
 def fill_chomiki(n):
     for _ in range(n):
         imie = random.choice(first_names)
