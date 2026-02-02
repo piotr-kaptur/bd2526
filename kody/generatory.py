@@ -146,13 +146,18 @@ conn = mysql.connector.connect(
     database="team13"
 )
 
-cursor = conn.cursor()
-cursor1 = conn.cursor()
-cursor2 = conn.cursor()
+cursor = conn.cursor(buffered=True)
+cursor1 = conn.cursor(buffered=True)
+cursor2 = conn.cursor(buffered=True)
+
 
 def generate_tables():
-    cursor.execute(
-    "CALL generate_tables()")
+    call_cursor = conn.cursor(buffered=True)
+    call_cursor.execute("CALL generate_tables()")
+    call_cursor.close()
+
+    
+
 
 def fill_chomiki(n):
     for _ in range(n):
@@ -201,7 +206,8 @@ def fill_kontrole():
     ORDER BY id_zawodow
     """
     cursor1.execute(sql1)
-    for id_zawodow, data_zawodow in cursor1:
+    rows = cursor1.fetchall()
+    for id_zawodow, data_zawodow in rows:
         
         cursor2.execute("""SELECT id_chomika
         FROM wyniki_zawodow
@@ -237,8 +243,8 @@ def fill_pracownicy(n):
         
         cursor.execute(
             """INSERT INTO pracownicy (imie, nazwisko, numer_telefonu, miasto, 
-            ulica, wynagrodzenie)
-            VALUES (%s, %s, %s, %s, %s, %s)""",
+             wynagrodzenie)
+            VALUES (%s, %s, %s, %s, %s)""",
             (imie, nazwisko, numer_telefonu, miasto, wynagrodzenie))
 
 def fill_sponsorzy():
@@ -322,9 +328,10 @@ def fill_wyniki_zawodow():
     ORDER BY z.id_zawodow
     """
     cursor.execute(sql)
+    rows = cursor.fetchall()
     #tutaj sortujemy tylko chomiki które zyją
     
-    for competition_id, hamster_id in cursor:
+    for competition_id, hamster_id in rows:
         id_zawodow = competition_id
         id_chomika = hamster_id
         czas = normal_distribution(min_race_time, max_race_time)
@@ -349,27 +356,23 @@ def fill_zawody(n):
             VALUES (%s, %s ,%s, %s, %s)""",
             (id_konkurencji, nazwa, data_zawodow, lokalizacja, pula_nagrod))
 
-        
-
-        
-    
-    
-    
-
-
-
-
-
-# def fillSponsorzy...
-# ...
-
-
-# i pozniej tylko
-# fillPracownicy(20)
-# ...
+generate_tables()       
+fill_chomiki(100)
+fill_finansowanie(10)
+fill_konkurencje()
+fill_pracownicy(10)
+fill_sponsorzy()
+#fill_sponsorzy_umowy(30)
+fill_substancje_zakazane()
+fill_zawody(100)
+fill_kontrole()
+fill_wyniki_kontroli()
+fill_wyniki_zawodow()        
 
 
 conn.commit()
 
 cursor.close()
+cursor1.close()
+cursor2.close()
 conn.close()       
