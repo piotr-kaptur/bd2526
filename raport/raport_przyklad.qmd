@@ -2,8 +2,6 @@
 title: "Raport: Analiza Chomików Sportowych"
 subtitle: "Analiza danych z bazy Team13"
 lang: pl
-author: "Piotr Kaptur"
-date: 2026-02-02
 date-format: short
 title-block-style: plain
 title-block-banner: "#33ffa3"
