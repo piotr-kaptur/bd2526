@@ -2,8 +2,6 @@
 title: "Raport: Analiza Chomików Sportowych"
 subtitle: "Analiza danych z bazy Team13"
 lang: pl
-author: "Piotr Kaptur"
-date: 2026-02-02
 date-format: short
 title-block-style: plain
 title-block-banner: "#33ffa3"
@@ -33,6 +31,8 @@ import plotly.graph_objects as go
 from datetime import date
 from IPython.display import Markdown
 import urllib.parse
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 ```
 
 ## Konfiguracja połączenia
@@ -102,6 +102,8 @@ df_best = pd.read_sql_query(query_best.statement, engine)
 Markdown(df_best.to_markdown(index=False))
 ```
 
+Wszyscy rekordziści niezależnie od konkurencji osiągają czasy w okolicy 15 sekund. Chomiki rasy rumuńskiej trzymają nawjwięcej bo aż 3 z 5 rekordów.
+
 ### 2. Szczyt kariery chomików
 
 Analiza zależności między wiekiem chomika (w dniach) a osiąganym czasem. Pozwala określić, w jakim wieku zawodnicy są najszybsi.
@@ -144,7 +146,7 @@ Sprawdzamy, czy chomiki posiadające wyższe kontrakty sponsorskie osiągają le
 query_sponsors = session.query(
     SponsorzyUmowy.id_chomika,
     sa.func.sum(SponsorzyUmowy.kwota).label('suma_sponsoringu')
-).group_by(SponsorzyUmowy.id_chomika).subquery()
+    ).group_by(SponsorzyUmowy.id_chomika).subquery()
 
 query_perf = session.query(
     Chomiki.imie,
@@ -219,7 +221,7 @@ fig.update_layout(
 fig.show()
 ```
 
-Okazuje się że pieniądze nie mają wpływu na wyniki zawodników niezależnie od dyscypliny, zaówno dobrze jak i słabo finansowane chomiki osiągają dobre wyniki.
+Okazuje się że pieniądze nie mają wpływu na wyniki zawodników niezależnie od dyscypliny. Bardzo dobrze finansowane chomiki (powyżej 0.6M) osiągają częsciej średnie czasy (ok. 23s)
 
 ### 4. Popularność sportu i finanse
 
@@ -238,9 +240,9 @@ query_pop = session.query(
 
 df_pop = pd.read_sql_query(query_pop.statement, engine)
 
-pula = session.query(sa.func.sum(Zawody.pula_nagrod)).scalar() or 0
-finans = session.query(sa.func.sum(Finansowanie.kwota)).scalar() or 0
-spons = session.query(sa.func.sum(SponsorzyUmowy.kwota)).scalar() or 0
+pula = session.query(sa.func.sum(Zawody.pula_nagrod)).scalar()
+finans = session.query(sa.func.sum(Finansowanie.kwota)).scalar()
+spons = session.query(sa.func.sum(SponsorzyUmowy.kwota)).scalar()
 
 df_fin = pd.DataFrame({
     'Kategoria': ['Wydatki (Nagrody)', 'Przychody (Całkowite)'],
@@ -260,7 +262,7 @@ fig2 = px.bar(df_fin, x='Kategoria', y='Kwota', color='Kategoria', title="Bilans
 fig2.show()
 ```
 
-Popularność ulega Ilość uczesniów w zawodach notuje sporą zmienność. W ostatnich latach (po 2020 r. jak i po 2016r.) widoczny jest wyraźny dołek i spadek liczby zawodników poniżej 60 na zawody.
+Ilość uczesniów w zawodach notuje sporą zmienność. W ostatnich latach (po 2020 r. jak i po 2016r.) widoczny jest wyraźny dołek i spadek liczby zawodników poniżej 60 na zawody.
 
 Wykres słupkowy pokazuje, że federacja jest w doskonałej kondycji finansowej. Przychody całkowite (sponsoring i dotacje wynoszące ponad 150 mln) niemal trzykrotnie przewyższają główne koszty operacyjne, jakimi są pule nagród (nieco ponad 50 mln). Oznacza to, że sport chomiczy jest wysoce skomercjalizowany i generuje potężne zyski dla organizatorów.
 
@@ -293,20 +295,60 @@ fig.show()
 ```
 
 ### 6. Skuteczność kontroli antydopingowych
+
 Procentowy udział wyników kontroli.
 
 ```{python}
 #| label: fig-control
 #| echo: false
+
 query_control = session.query(
     Kontrole.wynik_kontroli,
     sa.func.count(Kontrole.id_kontroli).label('liczba')
+
 ).group_by(Kontrole.wynik_kontroli)
 
+WynikiKontroli = Base.classes.wyniki_kontroli
+
+query_substances = session.query(
+    WynikiKontroli.substancje_zakazane,
+    sa.func.count(WynikiKontroli.id_kontroli).label('liczba')
+).group_by(WynikiKontroli.substancje_zakazane)
+
+df_substances = pd.read_sql_query(query_substances.statement, engine)
+
 df_control = pd.read_sql_query(query_control.statement, engine)
-fig = px.pie(df_control, values='liczba', names='wynik_kontroli', title="Wyniki kontroli")
+
+fig = make_subplots(rows=1, cols=2, specs=[[{'type':'domain'}, {'type':'domain'}]],
+                    subplot_titles=['Ogólne wyniki kontroli', 'Najczęściej wykrywane substancje'])
+
+fig.add_trace(go.Pie(labels=df_control['wynik_kontroli'], 
+                     values=df_control['liczba'], 
+                     marker=dict(colors=['#2ca02c', '#d62728']),
+                     textinfo='percent+label', 
+                     textposition='inside'), 
+              row=1, col=1)
+
+fig.add_trace(go.Pie(labels=df_substances['substancje_zakazane'], 
+                     values=df_substances['liczba'],
+                     textinfo='percent+label', 
+                     textposition='inside'), 
+              row=1, col=2)
+
+fig.update_layout(
+    showlegend=False,
+    height=500
+)
 fig.show()
 ```
+
+System antydopingowy działa skutecznie, a problem ma charakter marginalny – nieco ponad 3% kontroli daje wynik pozytywny. Oznacza to, że około 97% stawki rywalizuje zgodnie z zasadami fair play.
+
+Mimo niskiego odsetka oszustw, substancje wykrywane u tych 3% chomików są niezwykle inwazyjne. Rynek zdominowany jest przez dwa typy środków:
+
+Silne stymulanty układu nerwowego: Pseudoefedryna (12.1%), Amfetamina (9.09%) czy Kokaina (3.03%), służące do maksymalnego pobudzenia przed startem.
+
+Sterydy anaboliczno-androgenne: Stanozolol (12.1%), Nandrolon (6.06%) czy Trenbolon (3.03%), budujące nienaturalną masę mięśniową i siłę. Świadczy to o tym, że doping nie jest przypadkowy (nie są to losowe zanieczyszczenia karmy), lecz jest to zaawansowany, celowy proceder.
 
 ### 7. Analiza Fizjonomii
 Czy budowa ciała (waga i wzrost) ma kluczowy wpływ na osiągany czas? Wykres 3D pozwala nam zaobserwować najlepszych zawodników w przestrzeni cech fizycznych.
@@ -333,7 +375,7 @@ fig.update_layout(margin=dict(l=0, r=0, b=0, t=30))
 fig.show()
 ```
 
-Wykred powyżej pokazuje , że waga oraz wzrost chomików nie mają żadnego wpływu na osiągany przez nie czas. Żadna z ras, niezależnie od swoich gabarytów (czy to malutki chomik Roborowskiego, czy duży chomik europejski), nie zyskuje naturalnej przewagi fizycznej w tych konkretnych zawodach. Sukces zależy zatem od innych czynników (np. ukrytego talentu, wytrenowania lub, jak wykazano wcześniej, poziomu finansowania).
+Wykres powyżej pokazuje , że waga oraz wzrost chomików nie mają żadnego wpływu na osiągany przez nie czas. Żadna z ras, niezależnie od swoich gabarytów (czy to malutki chomik Roborowskiego, czy duży chomik europejski), nie zyskuje naturalnej przewagi fizycznej w tych konkretnych zawodach. Sukces zależy zatem od innych czynników np. ukrytego talentu, wytrenowania.
 
 ### 8. Co decyduje o sukcesie? Jak parametry, finansowanie i wiek wpływają na siebie nawzajem?
 - Wartość bliska **1** lub **-1** oznacza silną zależność.
@@ -361,6 +403,7 @@ query_money = session.query(
     SponsorzyUmowy.id_chomika,
     sa.func.sum(SponsorzyUmowy.kwota).label('finansowanie')
 ).group_by(SponsorzyUmowy.id_chomika)
+
 df_money = pd.read_sql_query(query_money.statement, engine)
 
 df_full = pd.merge(df_main, df_money, on='id_chomika', how='left').fillna(0)
@@ -375,6 +418,7 @@ fig = px.imshow(corr_matrix,
                 title="Macierz Korelacji: Co wpływa na czas?")
 fig.show()
 ```
+
 
 Macierz powyżej pokazuje, że żadna z badanych zmiennych nie jest ze sobą powiązana. Wszystkie współczynniki w macierzy (poza przekątną) oscylują bardzo blisko zera (w przedziale od -0.04 do +0.02). Skoro żaden z mierzonych, parametrów nie wpływa na czas, oznacza to, że o sukcesie w federacji decydują czynniki niemierzalne – wrodzony talent, łut szczęścia lub chwilowa dyspozycja lub niedyspozycja danego dnia.
 
