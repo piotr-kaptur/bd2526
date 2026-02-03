@@ -46,7 +46,8 @@
 `pip install mysql-connector-python numpy pandas`
 
 3. **Weryfikacja danych serwera** - Sprawdzamy, czy dane dotyczące serwera w pliku **generatory.py** są poprawne.
-4. **Uruchomienie generatora** - Uruchamiamy plik **generatory.py**. W ten sposób tabele zostaną przygotowane, dane wygenerowane i finalnie powstanie wraz z plik z Raportem.
+4. **Uruchomienie generatora** - Uruchamiamy plik **generatory.py**. W ten sposób tabele zostaną przygotowane i dane wygenerowane.
+5. **Wygenerowanie raportu** - Uruchamiamy plik Raport.qmd, który wygeneruje Raport z uaktualnionymi wykresami.
 ## Schemat projektu
 Baza składa się z jedenastu powiązanych tabel. Są to:
 1. **Główne obiekty**: chomiki, pracownicy, sponsorzy
@@ -98,11 +99,12 @@ W naszym przypadku dla każdej tabeli klucz jest pojedynczy, więc 2NF jest auto
 W naszej tabeli widać, że każdy atrybut zależy tylko i wyłącznie od jedynego i pojedynczego klucza głównego.
 
 4. **Mamy spełnione EKNF**, ponieważ:
-* Spełnione jeset 3NF
-* Wszystkie zależności funkcyjne **F:X&rarr;A**, gdzie X jest superkluczem lub A jest elementarnym atrybutem kluczowym
+* Spełnione jest 3NF
+* Wszystkie zależności funkcyjne mają postać **F:X&rarr;A**, gdzie X jest superkluczem lub A jest elementarnym atrybutem kluczowym
 
 W naszych bazach klucz główny zawsze jest superkluczem i jedyną kolumną determinującą jednoznacznie resztę kolumn.
 
 ## Najtrudniejsze elementy realizacji
-...
-??Czy Raport generuje się automatycznie przy wywołaniu generatory.py??
+To, co sprawiło nam nawjęcej prblemów w trakcie realizacji projektu, to:
+* utrzymanie pełnej normalizacji bazy danych
+* generowanie danych próbujących odzwierciedlać rzeczywiste uwarunkowania chomików
