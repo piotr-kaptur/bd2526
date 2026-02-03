@@ -7,7 +7,14 @@
 * numpy (rozkłady prawdopodobieństwa)
 * pandas
 * random (generowanie danych losowych)
+* SQLAlchemy 
+* Plotly
+* PyMySQL
+* IPython
 4. **Narzędzia** :
+* dbdiagram.io
+* Quarto
+* Jupyter
 * Visual Studio Code (edytor kodu)
 * SQLTools (klient bazy danych)
 * GitHub (kontrola wersji)
@@ -26,7 +33,9 @@
 * import danych ze słowników
 * generowanie danych wypełniających tabele
 4. **Raport.qmd** - plik generujący raport
-5. **Raport.html** - raport zawierający pełną analizą danych zawartych w bazach 
+5. **Raport.html** - raport zawierający pełną analizą danych zawartych w bazach
+6. **dokumentacja.md** - plik źródłowy dokumentacji
+7. **dokumentacja.pdf** - plik z dokumentacją projektu 
 ## Sposób uruchamiania
 1. **Sklonowanie repozytorium z GitHub** - Należy pobrać kod źrodłowy na dysk lokalny z wykorzystaniem komendy:
 
@@ -44,6 +53,9 @@ Baza składa się z jedenastu powiązanych tabel. Są to:
 2. **Wydarzenia**: zawody, konkurencje
 3. **Finanse**: finansowanie, sponsorzy_umowy
 4. **Wyniki i Kontrola**: wyniki_zawodów, kontrole, wyniki_kontroli, substancje_zakazane
+
+![Diagrag ERD](diagramERD.png "Diagram ERD")
+
 ## Zależności funkcyjne
 Tabele funkcyjne postaci **F:X&rarr;Y**, gdzie **X&rarr;Y** oznacza: X(klucz) determinuje Y:
 1. **Chomiki** - *id_chomika* &rarr; {imie, rasa, kolor, waga, wzrost, płeć, data urodzenia, data śmierci}
