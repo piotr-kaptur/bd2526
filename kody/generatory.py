@@ -17,7 +17,7 @@ creation_date = dt.date(1990, 12, 2)
 current_date = dt.date.today()
 
 # HAMSTERS
-hamster_ammount = 10000 # 10,000
+hamster_ammount = 10000
 min_hamster_weight = 20
 max_hamster_weight = 80
 min_hamster_height = 4
@@ -357,18 +357,17 @@ def fill_zawody(n):
             (id_konkurencji, nazwa, data_zawodow, lokalizacja, pula_nagrod))
 
 generate_tables()       
-fill_chomiki(100)
-fill_finansowanie(10)
+fill_chomiki(hamster_ammount)
+fill_finansowanie(100)
 fill_konkurencje()
 fill_pracownicy(10)
 fill_sponsorzy()
-fill_sponsorzy_umowy(30)
+fill_sponsorzy_umowy(4000)
 fill_substancje_zakazane()
-fill_zawody(100)
+fill_zawody(300)
 fill_wyniki_zawodow()
 fill_kontrole()
 fill_wyniki_kontroli()
-      
 
 
 conn.commit()
