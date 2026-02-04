@@ -38,7 +38,6 @@ BEGIN
 
     CREATE TABLE finansowanie (
         id_finansowania INT AUTO_INCREMENT PRIMARY KEY,
-        zrodlo VARCHAR(100),
         kwota DECIMAL(10,2),
         data_finansowania DATE
     );
