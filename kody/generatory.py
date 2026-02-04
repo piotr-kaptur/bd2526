@@ -17,7 +17,7 @@ creation_date = dt.date(1990, 12, 2)
 current_date = dt.date.today()
 
 # HAMSTERS
-hamster_ammount = 10000 # 10,000
+hamster_ammount = 10000
 min_hamster_weight = 20
 max_hamster_weight = 80
 min_hamster_height = 4
@@ -374,7 +374,6 @@ fill_zawody(competition_ammount)
 fill_wyniki_zawodow()
 fill_kontrole()
 fill_wyniki_kontroli()
-      
 
 
 conn.commit()
