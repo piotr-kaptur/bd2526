@@ -355,16 +355,22 @@ def fill_zawody(n):
             pula_nagrod)
             VALUES (%s, %s ,%s, %s, %s)""",
             (id_konkurencji, nazwa, data_zawodow, lokalizacja, pula_nagrod))
+# zmienne
+hamster_ammount = 1000
+finance_ammount = 100
+workers_ammount = 10
+sponsorship_ammount = 400
+competition_ammount = 100
 
 generate_tables()       
-fill_chomiki(100)
-fill_finansowanie(10)
+fill_chomiki(hamster_ammount)
+fill_finansowanie(finance_ammount)
 fill_konkurencje()
-fill_pracownicy(10)
+fill_pracownicy(workers_ammount)
 fill_sponsorzy()
-fill_sponsorzy_umowy(30)
+fill_sponsorzy_umowy(sponsorship_ammount)
 fill_substancje_zakazane()
-fill_zawody(100)
+fill_zawody(competition_ammount)
 fill_wyniki_zawodow()
 fill_kontrole()
 fill_wyniki_kontroli()
