@@ -96,39 +96,34 @@ df_best = pd.read_sql_query(query_best.statement, engine)
 ```
 
 ```{python}
-#| label: fig-best-barplot
-#| fig-cap: "Rekordziści w poszczególnych konkurencjach"
+#| label: fig-best-table
 #| echo: false
 
-fig = px.bar(df_best, 
-             x='nazwa_konkurencji', 
-             y='najlepszy_czas', 
-             color='rasa',
-             text='imie',
-             title="Najlepsze czasy według konkurencji",
-             labels={'najlepszy_czas': 'Czas (s)', 'nazwa_konkurencji': 'Dyscyplina', 'rasa': 'Rasa'})
+df_display = df_best.rename(columns={
+    'nazwa_konkurencji': 'Dyscyplina',
+    'imie': 'Imię Chomika',
+    'rasa': 'Rasa',
+    'najlepszy_czas': 'Czas (s)'
+})
 
-fig.update_traces(textposition='auto')
-fig.update_layout(xaxis_tickangle=-45)
-fig.show()
+Markdown(df_display.to_markdown(index=False))
 ```
-
-Wszyscy rekordziści, niezależnie od konkurencji, osiągają czasy w okolicy 15-16 sekund. Chomiki rasy chińskiej dzierżą najwięcej, bo aż 2 z 5 rekordów, jedynym rekordzistą niepochodzącym z azji jest chomik rasy europejskiej który dzierży rekord w biegu z przeszkodami.
+**Wnioski:**
+Wszyscy rekordziści, niezależnie od konkurencji, osiągają czasy w okolicy 15-16 sekund. Chomiki rasy rumuńskiej dzierżą najwięcej, bo aż 3 z 5 rekordów.
 
 ### 2. Szczyt kariery chomików
 
 Analiza zależności między wiekiem chomika a osiąganym czasem z podziałem na dyscypliny.
 
 ```{python}
-#| label: career_peak
+#| label: career_peak_data
 #| include: false
 
 query_age = session.query(
     Wyniki.czas,
     Chomiki.data_urodzenia,
     Zawody.data_zawodow,
-    Konkurencje.nazwa_konkurencji,
-    Chomiki.rasa
+    Konkurencje.nazwa_konkurencji
 ).join(Chomiki, Wyniki.id_chomika == Chomiki.id_chomika)\
  .join(Zawody, Wyniki.id_zawodow == Zawody.id_zawodow)\
  .join(Konkurencje, Zawody.id_konkurencji == Konkurencje.id_konkurencji)
@@ -138,36 +133,34 @@ df_age['wiek_dni'] = (pd.to_datetime(df_age['data_zawodow']) - pd.to_datetime(df
 ```
 
 ```{python}
-#| label: fig-career-peak-slider-discipline
-#| fig-cap: "Zależność wyniku od wieku chomika"
+#| label: fig-career-peak-line
+#| fig-cap: "Średni czas w przedziałach wiekowych"
 #| echo: false
+
+interval = 100
+df_age['wiek_koszyk'] = (df_age['wiek_dni'] // interval) * interval
+
+df_trends = df_age.groupby(['nazwa_konkurencji', 'wiek_koszyk'])['czas'].mean().reset_index()
+df_trends = df_trends.sort_values('wiek_koszyk')
 
 fig = go.Figure()
 
-dyscypliny = df_age['nazwa_konkurencji'].unique()
-
-rasy = df_age['rasa'].unique()
-colors = px.colors.qualitative.Bold
-color_map = {r: colors[i % len(colors)] for i, r in enumerate(rasy)}
+dyscypliny = df_trends['nazwa_konkurencji'].unique()
 
 for dysc in dyscypliny:
-    df_d = df_age[df_age['nazwa_konkurencji'] == dysc]
-    point_colors = df_d['rasa'].map(color_map)
+    df_d = df_trends[df_trends['nazwa_konkurencji'] == dysc]
     
     fig.add_trace(
         go.Scatter(
-            x=df_d['wiek_dni'],
+            x=df_d['wiek_koszyk'],
             y=df_d['czas'],
-            mode='markers',
+            mode='lines+markers',
             name=dysc,
-            text=df_d['rasa'],
-            hovertemplate="<b>%{text}</b><br>Wiek: %{x} dni<br>Czas: %{y}s<extra></extra>",
-            visible=False,
-            marker=dict(
-                size=8, 
-                color=point_colors, 
-                opacity=0.65
-            )
+            line=dict(width=3, shape='spline'),
+            marker=dict(size=8),
+            hovertemplate="Wiek: %{x}-%{customdata} dni<br>Średni czas: %{y:.2f}s<extra></extra>",
+            customdata=df_d['wiek_koszyk'] + interval,
+            visible=False
         )
     )
 
@@ -183,19 +176,15 @@ for i, dysc in enumerate(dyscypliny):
         label=dysc,
         method="update",
         args=[{"visible": visibility},
-              {"title": f"Wiek vs Czas: {dysc}"}]
+              {"title": f"Średni czas vs Wiek: {dysc}"}]    
     )
     buttons.append(button)
 
 fig.update_layout(
     updatemenus=[dict(active=0, buttons=buttons, x=1.15, y=1.15)],
-    title=f"Wiek vs Czas: {dyscypliny[0] if len(dyscypliny)>0 else ''}",
-    xaxis_title="Wiek (dni)",
-    yaxis_title="Czas (s)",
-    xaxis=dict(
-        rangeslider=dict(visible=True),
-        type="linear"
-    ),
+    title=f"Średni czas vs Wiek (co 50 dni): {dyscypliny[0] if len(dyscypliny)>0 else ''}",
+    xaxis_title="Przedział wiekowy (początek przedziału w dniach)",
+    yaxis_title="Średni czas (s)",
     margin=dict(t=50, b=50)
 )
 
@@ -203,10 +192,9 @@ fig.show()
 ```
 
 **Wnioski:**
-
 Analiza poszczególnych dyscyplin pokazuje, że wiek zawodnika nie jest czynnikiem limitującym wynik sportowy, niezależnie od charakteru konkurencji.
 
-* **Długowieczność:** Zarówno w konkurencjach wymagających eksplozywnej energii ("Sprint prosty"), jak i technicznych ("Slalom tunelowy"), wykresy  przyjmują formę płaskiej chmury punktów. Oznacza to, że starsze chomiki (powyżej 800 dni) rywalizują jak równy z równym z młodzikami.
+* **Długowieczność:** Zarówno w konkurencjach wymagających eksplozywnej energii ("Sprint prosty"), jak i technicznych ("Slalom tunelowy"), wykresy  utrzymują płaski trend. W "Biegu z przeszkodami" oraz "Sprincie prostym" starsze chomiki osiągają najlepsze czasy.
 * **Brak "krzywej formy":** W przeciwieństwie do sportu ludzkiego, gdzie widoczny jest wyraźny szczyt formy i późniejszy regres, u chomików wydolność pozostaje stała przez całe życie.
 
 ### 3. Czy pieniądze dają przewagę?
@@ -236,7 +224,7 @@ df_perf = pd.read_sql_query(query_perf.statement, engine)
 
 df_money = pd.read_sql_query(session.query(query_sponsors).statement, engine)
 
-df_final = pd.merge(df_perf, df_money, on='id_chomika', how='left').fillna(0)
+df_final = pd.merge(df_perf, df_money, on='id_chomika', how='inner')
 ```
 
 ```{python}
@@ -294,7 +282,7 @@ fig.update_layout(
 
 fig.show()
 ```
-
+**Wnioski:**
 Okazuje się, że pieniądze nie mają decydującego wpływu na wyniki zawodników niezależnie od dyscypliny. Bardzo dobrze finansowane chomiki (powyżej 0.6 mln PLN) osiągają często czasy przeciętne, co sugeruje, że budżet nie przekłada się na formę sportową.
 
 ### 4. Popularność sportu i finanse
@@ -329,7 +317,7 @@ przychody = finans + spons
 fig1 = px.line(df_pop, x='data_zawodow', y='liczba_uczestnikow', title="Dynamika frekwencji na zawodach")
 fig1.show()
 ```
-
+**Wnioski:**
 Liczba uczestników w zawodach notuje sporą zmienność. W ostatnich latach (po 2020 r., jak i po 2016 r.) widoczny jest wyraźny dołek i spadek liczby zawodników poniżej 60 na zawody.
 
 Pod kątem finansowym federacja jest jednak w doskonałej kondycji. Przychody całkowite (sponsoring i dotacje) wynoszą ponad **`{python} f"{przychody:,.0f}"` PLN**, co niemal trzykrotnie przewyższa główne koszty operacyjne, jakimi są pule nagród (**`{python} f"{pula:,.0f}"` PLN**). Oznacza to, że sport chomiczy jest wysoce skomercjalizowany i generuje potężne nadwyżki budżetowe.
@@ -412,7 +400,7 @@ fig.update_layout(
 )
 fig.show()
 ```
-
+**Wnioski:**
 System antydopingowy działa skutecznie, a problem ma charakter marginalny – **nieco ponad 3% kontroli daje wynik pozytywny**. Oznacza to, że około 97% stawki rywalizuje zgodnie z zasadami fair play.
 
 Mimo niskiego odsetka oszustw, substancje wykrywane u tych 3% chomików są niezwykle inwazyjne. Rynek zdominowany jest przez dwa typy środków:
@@ -449,7 +437,7 @@ fig.update_traces(marker_size=4)
 fig.update_layout(margin=dict(l=0, r=0, b=0, t=30))
 fig.show()
 ```
-
+**Wnioski:**
 Wykres powyżej pokazuje, że waga oraz wzrost chomików nie mają bezpośredniego wpływu na osiągany przez nie czas. Żadna z ras, niezależnie od swoich gabarytów (czy to malutki chomik roborowski, czy duży chomik europejski), nie zyskuje naturalnej przewagi fizycznej w tych konkretnych zawodach. Sukces zależy zatem od innych czynników, np. ukrytego talentu lub wytrenowania.
 
 ### 8. Co decyduje o sukcesie?
@@ -497,7 +485,7 @@ fig = px.imshow(corr_matrix,
                 title="Macierz Korelacji: Co wpływa na czas?")
 fig.show()
 ```
-
+**Wnioski:**
 Macierz powyżej potwierdza, że żadna z badanych zmiennych nie jest ze sobą silnie powiązana. Wszystkie współczynniki w macierzy (poza przekątną) oscylują bardzo blisko zera (w przedziale od -0.04 do +0.02). Skoro żaden z mierzonych parametrów ie wpływa na czas, oznacza to, że o sukcesie w federacji decydują czynniki niemierzalne – wrodzony talent, łut szczęścia lub chwilowa dyspozycja (lub niedyspozycja) danego dnia.
 
 ```{python}
