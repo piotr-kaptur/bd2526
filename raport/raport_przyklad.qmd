@@ -97,6 +97,7 @@ df_best = pd.read_sql_query(query_best.statement, engine)
 
 ```{python}
 #| label: fig-best-table
+#| fig-cap: "Rekordy w poszczególnych kategoriach"
 #| echo: false
 
 df_display = df_best.rename(columns={
