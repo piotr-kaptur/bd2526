@@ -27,7 +27,6 @@ hamster_races = ["syryjski","dzungarski","roborowski","chinski","campbella",
                "europejski","gansu","mongolski","turecki","rumunski"]
 hamster_colours = ["perlowy","karmelowy","grafitowy","piaskowy","popielaty",
                    "czekoladowy","miodowy","srebrzysty","waniliowy","szampanski"]
-hamster_runner_percentage = 0.8
 
 
 # FINANCES
@@ -132,11 +131,6 @@ def check_if_positive(chance): # chance should be a value between 0-1 and repres
         return True
     else:
         return False
-
-def generate_racing_formula(percentage_of_runners):
-    if (random.random() < percentage_of_runners):
-        return "bieg"
-    return "jazda"
     
 # ======================= SQL CONNECTION =======================        
 conn = mysql.connector.connect(
@@ -179,14 +173,13 @@ def fill_chomiki(n):
 
 def fill_finansowanie(n):
     for _ in range(n):
-        zrodlo = None # ktoś musi csv zrobic z tym, mi juz wystarczy
         kwota = normal_distribution(min_finance_money, max_finance_money)
         data_finansowania = generate_random_date(creation_date, current_date)
         
         cursor.execute(
-            """INSERT INTO finansowanie (zrodlo,kwota,data_finansowania)
-            VALUES (%s, %s, %s)""",
-            (zrodlo, kwota, data_finansowania))
+            """INSERT INTO finansowanie (kwota, data_finansowania)
+            VALUES (%s, %s)""",
+            (kwota, data_finansowania))
 
 def fill_konkurencje():
     for name, formula in racing_formulas:
@@ -232,13 +225,11 @@ def fill_kontrole():
             
     
 def fill_pracownicy(n):
-    #problematyczne (relacja miasto->ulica->kod_pocztowy)
     for _ in range(n):
         imie = random.choice(first_names)
         nazwisko = random.choice(last_names)
         numer_telefonu = generate_phone_number()
         miasto = random.choice(city_names)
-        kod_pocztowy = None # usunalem to, jezeli nie chcecie tego usuwac czytaj: to sobie to robcie moj pomysl byl taki ze generuje za kazdym razem csv ktore kazdemu miastu przypisuje unikalny randomowo wygenerowany kod-pocztowy po czym przy tworzeniu po prostu odczytujemy z krotki/csv
         wynagrodzenie = normal_distribution(minimal_wage, maximum_wage)
         
         cursor.execute(
@@ -269,8 +260,7 @@ def fill_sponsorzy_umowy(n):
     cursor2.execute(sql2)
     
     sponsors_id = [row[0] for row in cursor1.fetchall()]
-    chomiki_info = cursor2.fetchall() # to bedzie w chuj wolne ale nw jak inaczej to zrobic
-    
+    chomiki_info = cursor2.fetchall() 
     for _ in range(n):
         id_sponsora = random.choice(sponsors_id)
         id_chomika, data_urodzenia, data_smierci = random.choice(chomiki_info)
@@ -355,16 +345,22 @@ def fill_zawody(n):
             pula_nagrod)
             VALUES (%s, %s ,%s, %s, %s)""",
             (id_konkurencji, nazwa, data_zawodow, lokalizacja, pula_nagrod))
+# zmienne
+hamster_ammount = 1000
+finance_ammount = 100
+workers_ammount = 10
+sponsorship_ammount = 400
+competition_ammount = 100
 
 generate_tables()       
 fill_chomiki(hamster_ammount)
-fill_finansowanie(100)
+fill_finansowanie(finance_ammount)
 fill_konkurencje()
-fill_pracownicy(10)
+fill_pracownicy(workers_ammount)
 fill_sponsorzy()
-fill_sponsorzy_umowy(4000)
+fill_sponsorzy_umowy(sponsorship_ammount)
 fill_substancje_zakazane()
-fill_zawody(300)
+fill_zawody(competition_ammount)
 fill_wyniki_zawodow()
 fill_kontrole()
 fill_wyniki_kontroli()
